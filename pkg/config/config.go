@@ -10,6 +10,6 @@ type c struct {
 var (
 	AppConfig = c{}
 	ResourcesToBackup = [...]string{
-		"issuer", "clusterissuer", "certificates", "certificaterequests",
+		"issuers", "clusterissuers", "certificates", "certificaterequests",
 	}
 )

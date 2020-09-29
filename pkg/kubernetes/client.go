@@ -1,12 +1,11 @@
 package kubernetes
 
 import (
-	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func GetNativeClientSet(kubeconfig string) (*kubernetes.Clientset, error) {
+func GetConfig(kubeconfig string) (*restclient.Config, error) {
 	var cfg *restclient.Config
 	var err error
 	if kubeconfig == "" {
@@ -20,5 +19,5 @@ func GetNativeClientSet(kubeconfig string) (*kubernetes.Clientset, error) {
 			return nil, err
 		}
 	}
-	return kubernetes.NewForConfig(cfg)
+	return cfg, nil
 }

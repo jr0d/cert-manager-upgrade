@@ -5,8 +5,9 @@ go 1.15
 require (
 	github.com/spf13/cobra v1.0.0
 	k8s.io/api v0.16.6
+	k8s.io/apiextensions-apiserver v0.0.0-00010101000000-000000000000
 	k8s.io/apimachinery v0.16.6
-	k8s.io/client-go v0.0.0-00010101000000-000000000000
+	k8s.io/client-go v0.16.6
 )
 
 replace (
