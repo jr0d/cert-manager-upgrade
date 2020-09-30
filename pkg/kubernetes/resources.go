@@ -58,19 +58,34 @@ func GetCertManagerResources(dyn dynamic.Interface) ([]unstructured.Unstructured
 }
 
 func BackupResources(c kubernetes.Interface, resources []unstructured.Unstructured) error {
-	var errors []error
+	hasErrors := false
 	for _, resource := range resources {
 		log.Printf("backing up %s: %s/%s",
 			resource.GetKind(), resource.GetNamespace(), resource.GetName())
 		if err := storeResource(c, &resource); err != nil {
-			errors = append(errors, fmt.Errorf("error backing up %s/%s: %v",
+			log.Printf("%v", fmt.Errorf("error backing up %s/%s: %v",
 				resource.GetNamespace(), resource.GetName(), err))
+			hasErrors = true
 		}
+	}
+	if hasErrors {
+		return fmt.Errorf("could not backup all resources")
+	}
+	return nil
+}
+
+func DeleteBackups(c kubernetes.Interface) error {
+	if err := c.CoreV1().ConfigMaps(
+		config.AppConfig.CertManagerNamespace).DeleteCollection(
+			&metav1.DeleteOptions{}, metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=true", certManagerBackupLabel)}); err != nil {
+		return err
 	}
 	return nil
 }
 
 func DeleteCRDs(cfg *rest.Config) error {
+	hasErrors := false
 	var remove []apiextensionsv1.CustomResourceDefinition
 	apiclient, err := apiextensionsclient.NewForConfig(cfg)
 	if err != nil {
@@ -83,15 +98,23 @@ func DeleteCRDs(cfg *rest.Config) error {
 	}
 
 	for _, crd := range crdList.Items {
-		if strings.Contains(crd.Name, "cert-manager.k8s.io") {
+		if strings.Contains(crd.Name, "certmanager.k8s.io") {
 			remove = append(remove, crd)
 		}
 	}
 
 	for _, r := range remove {
-		log.Printf("Removing CRD: %s", r.Name)
+		log.Printf("deleting CRD: %s", r.Name)
+		if err := apiclient.CustomResourceDefinitions().Delete(
+				r.Name, &metav1.DeleteOptions{}); err != nil {
+			log.Printf("%v", fmt.Errorf("error deleting CRD %s : %v",
+				r.Name, err))
+			hasErrors = true
+		}
 	}
-
+	if hasErrors {
+		return fmt.Errorf("could not delete all CRDs")
+	}
 	return nil
 }
 

@@ -31,6 +31,7 @@ func Backup(kubeconfig string) error {
 
 	if !res {
 		fmt.Printf("v1alpha1 is not present, nothing to do.")
+		return nil
 	}
 
 	resources, err := myk8s.GetCertManagerResources(dyn)
@@ -40,6 +41,16 @@ func Backup(kubeconfig string) error {
 
 	log.Printf("backing up %d items", len(resources))
 	if err := myk8s.BackupResources(c, resources); err != nil {
+		return err
+	}
+
+	log.Printf("deleting CRDs...")
+	if err := myk8s.DeleteCRDs(cfg); err != nil {
+		return err
+	}
+
+	log.Printf("deleting backups...")
+	if err := myk8s.DeleteBackups(c); err != nil {
 		return err
 	}
 	return nil
