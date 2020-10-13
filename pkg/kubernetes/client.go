@@ -11,7 +11,7 @@ func GetConfig(kubeconfig string) (*restclient.Config, error) {
 	if kubeconfig == "" {
 		cfg, err = restclient.InClusterConfig()
 		if err != nil {
-			return  nil, err
+			return nil, err
 		}
 	} else {
 		cfg, err = clientcmd.BuildConfigFromFlags("", kubeconfig)

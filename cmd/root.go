@@ -8,8 +8,6 @@ import (
 	"github.com/jr0d/cert-manager-upgrade/pkg/config"
 )
 
-
-
 var (
 	kubeconfig string
 
@@ -34,8 +32,6 @@ func stringVarWithEnv(p *string, name, env, value, help string) {
 		v = value
 	}
 	rootCmd.PersistentFlags().StringVar(p, name, v, help)
-
-	rootCmd.AddCommand(backupCmd)
 }
 
 func init() {
@@ -47,4 +43,7 @@ func init() {
 
 	stringVarWithEnv(
 		&config.AppConfig.CertManagerNamespace, "cert-manager-namespace", "CERT_MANAGER_NAMESPACE", config.DefaultCertManagerNamespace, "")
+
+	rootCmd.AddCommand(backupCmd)
+	rootCmd.AddCommand(restoreCmd)
 }

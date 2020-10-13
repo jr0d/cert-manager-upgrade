@@ -1,7 +1,9 @@
 package kubernetes
 
 import (
+	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime"
 	"log"
 	"strings"
 
@@ -23,21 +25,17 @@ const (
 )
 
 func HasV1Alpha1(c kubernetes.Interface) (bool, error) {
-	groups, err := c.Discovery().ServerGroups()
-	if err != nil {
-		return false, err
-	}
+	return hasGroupVersion(c, schema.GroupVersion{
+		Group:   config.CertManagerGroupV1Alpha1,
+		Version: config.CertManagerVersionV1Alpha1,
+	})
+}
 
-	for _, g := range groups.Groups {
-		if g.Name == config.CertManagerGroupV1Alpha1 {
-			for _, v := range g.Versions {
-				if v.Version == config.CertManagerVersionV1Alpha1 {
-					return true, nil
-				}
-			}
-		}
-	}
-	return false, nil
+func HasV1(c kubernetes.Interface) (bool, error) {
+	return hasGroupVersion(c, schema.GroupVersion{
+		Group:   config.CertManagerGroupV1,
+		Version: config.CertManagerVersionV1,
+	})
 }
 
 func GetCertManagerResources(dyn dynamic.Interface) ([]unstructured.Unstructured, error) {
@@ -48,7 +46,7 @@ func GetCertManagerResources(dyn dynamic.Interface) ([]unstructured.Unstructured
 			Version:  config.CertManagerVersionV1Alpha1,
 			Resource: resource,
 		}
-		ul, err := dyn.Resource(gvr).Namespace(corev1.NamespaceAll).List(metav1.ListOptions{})
+		ul, err := dyn.Resource(gvr).Namespace(corev1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("error getting resource list: %v : %v", gvr, err)
 		}
@@ -74,11 +72,57 @@ func BackupResources(c kubernetes.Interface, resources []unstructured.Unstructur
 	return nil
 }
 
+func FetchBackups(c kubernetes.Interface) ([][]byte, error) {
+	cms, err := c.CoreV1().ConfigMaps(
+		config.AppConfig.CertManagerNamespace).List(
+		context.TODO(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=true", certManagerBackupLabel)})
+	if err != nil {
+		return nil, err
+	}
+
+	data := make([][]byte, 0, len(cms.Items))
+	for _, cm := range cms.Items {
+		j, ok := cm.Data[certManagerBackupDataKey]
+		if !ok {
+			continue
+		}
+		data = append(data, []byte(j))
+	}
+	return data, nil
+}
+
+func ApplyObject(dyn dynamic.Interface, object runtime.Object) error {
+	d, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
+	if err != nil {
+		return err
+	}
+
+	u := unstructured.Unstructured{Object: d}
+	gvk := u.GroupVersionKind()
+	gvr := schema.GroupVersionResource{
+		Group:    gvk.Group,
+		Version:  gvk.Version,
+		Resource: config.ResourceKindMap[gvk.Kind],
+	}
+
+	var dr dynamic.ResourceInterface
+	if u.GetNamespace() == "" {
+		dr = dyn.Resource(gvr)
+	} else {
+		dr = dyn.Resource(gvr).Namespace(u.GetNamespace())
+	}
+
+	log.Printf("creating %s.%s.%s: %s/%s", gvr.Resource, gvr.Group, gvr.Version, u.GetNamespace(), u.GetName())
+	_, err = dr.Create(context.TODO(), &u, metav1.CreateOptions{})
+	return err
+}
+
 func DeleteBackups(c kubernetes.Interface) error {
 	if err := c.CoreV1().ConfigMaps(
-		config.AppConfig.CertManagerNamespace).DeleteCollection(
-			&metav1.DeleteOptions{}, metav1.ListOptions{
-				LabelSelector: fmt.Sprintf("%s=true", certManagerBackupLabel)}); err != nil {
+		config.AppConfig.CertManagerNamespace).DeleteCollection(context.TODO(),
+		metav1.DeleteOptions{}, metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=true", certManagerBackupLabel)}); err != nil {
 		return err
 	}
 	return nil
@@ -92,7 +136,7 @@ func DeleteCRDs(cfg *rest.Config) error {
 		return err
 	}
 
-	crdList, err := apiclient.CustomResourceDefinitions().List(metav1.ListOptions{})
+	crdList, err := apiclient.CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -105,8 +149,8 @@ func DeleteCRDs(cfg *rest.Config) error {
 
 	for _, r := range remove {
 		log.Printf("deleting CRD: %s", r.Name)
-		if err := apiclient.CustomResourceDefinitions().Delete(
-				r.Name, &metav1.DeleteOptions{}); err != nil {
+		if err := apiclient.CustomResourceDefinitions().Delete(context.TODO(),
+			r.Name, metav1.DeleteOptions{}); err != nil {
 			log.Printf("%v", fmt.Errorf("error deleting CRD %s : %v",
 				r.Name, err))
 			hasErrors = true
@@ -131,7 +175,7 @@ func storeResource(c kubernetes.Interface, resource *unstructured.Unstructured) 
 		},
 	}
 	if _, err := c.CoreV1().ConfigMaps(config.AppConfig.CertManagerNamespace).
-		Create(&backupCfm); err != nil {
+		Create(context.TODO(), &backupCfm, metav1.CreateOptions{}); err != nil {
 		return err
 	}
 	return nil
@@ -146,4 +190,22 @@ func resourceMeta(resource *unstructured.Unstructured) metav1.ObjectMeta {
 		},
 	}
 	return om
+}
+
+func hasGroupVersion(c kubernetes.Interface, gv schema.GroupVersion) (bool, error) {
+	groups, err := c.Discovery().ServerGroups()
+	if err != nil {
+		return false, err
+	}
+
+	for _, g := range groups.Groups {
+		if g.Name == gv.Group {
+			for _, v := range g.Versions {
+				if v.Version == gv.Version {
+					return true, nil
+				}
+			}
+		}
+	}
+	return false, nil
 }

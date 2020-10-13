@@ -1,11 +1,13 @@
 package app
 
 import (
-	"fmt"
-	myk8s "github.com/jr0d/cert-manager-upgrade/pkg/kubernetes"
+	"github.com/jr0d/cert-manager-upgrade/pkg/config"
+	"log"
+
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"log"
+
+	myk8s "github.com/jr0d/cert-manager-upgrade/pkg/kubernetes"
 )
 
 func Backup(kubeconfig string) error {
@@ -25,12 +27,12 @@ func Backup(kubeconfig string) error {
 	}
 
 	res, err := myk8s.HasV1Alpha1(c)
-	if  err != nil {
+	if err != nil {
 		return err
 	}
 
 	if !res {
-		fmt.Printf("v1alpha1 is not present, nothing to do.")
+		log.Printf("v1alpha1 is not present, nothing to do.")
 		return nil
 	}
 
@@ -44,14 +46,11 @@ func Backup(kubeconfig string) error {
 		return err
 	}
 
-	log.Printf("deleting CRDs...")
-	if err := myk8s.DeleteCRDs(cfg); err != nil {
-		return err
-	}
-
-	log.Printf("deleting backups...")
-	if err := myk8s.DeleteBackups(c); err != nil {
-		return err
+	if !config.AppConfig.PreserveCRDs {
+		log.Printf("deleting CRDs...")
+		if err := myk8s.DeleteCRDs(cfg); err != nil {
+			return err
+		}
 	}
 	return nil
 }
