@@ -3,13 +3,14 @@ package pkg
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+
 	"github.com/jetstack/cert-manager/pkg/ctl"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apijson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
-	"log"
 
 	"github.com/jr0d/cert-manager-upgrade/pkg/config"
 )

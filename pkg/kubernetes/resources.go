@@ -3,20 +3,22 @@ package kubernetes
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime"
 	"log"
 	"strings"
 
-	"github.com/jr0d/cert-manager-upgrade/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/jr0d/cert-manager-upgrade/pkg/config"
 )
 
 const (
@@ -99,6 +101,9 @@ func ApplyObject(dyn dynamic.Interface, object runtime.Object) error {
 	}
 
 	u := unstructured.Unstructured{Object: d}
+
+	cleanObject(&u)
+
 	gvk := u.GroupVersionKind()
 	gvr := schema.GroupVersionResource{
 		Group:    gvk.Group,
@@ -112,10 +117,21 @@ func ApplyObject(dyn dynamic.Interface, object runtime.Object) error {
 	} else {
 		dr = dyn.Resource(gvr).Namespace(u.GetNamespace())
 	}
-
 	log.Printf("creating %s.%s.%s: %s/%s", gvr.Resource, gvr.Group, gvr.Version, u.GetNamespace(), u.GetName())
-	_, err = dr.Create(context.TODO(), &u, metav1.CreateOptions{})
-	return err
+
+	o, err := dr.Get(context.TODO(), u.GetName(), metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			_, err = dr.Create(context.TODO(), &u, metav1.CreateOptions{})
+		}
+		return err
+	}
+	oGvk := o.GroupVersionKind()
+	if oGvk.Group != config.CertManagerGroupV1 || oGvk.Version != config.CertManagerVersionV1 {
+		return fmt.Errorf("object exists but is not converted: %s/%s : %v", o.GetNamespace(), o.GetName(), oGvk)
+	}
+	log.Printf("object is already converted: %s/%s", o.GetNamespace(), o.GetName())
+	return nil
 }
 
 func DeleteBackups(c kubernetes.Interface) error {
@@ -208,4 +224,11 @@ func hasGroupVersion(c kubernetes.Interface, gv schema.GroupVersion) (bool, erro
 		}
 	}
 	return false, nil
+}
+
+func cleanObject(u *unstructured.Unstructured) {
+	for _, field := range config.MetaDataFieldsToRemove {
+		unstructured.RemoveNestedField(u.Object, "metadata", field)
+	}
+	unstructured.RemoveNestedField(u.Object, "status")
 }

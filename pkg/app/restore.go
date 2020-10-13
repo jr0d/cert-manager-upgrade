@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"github.com/jr0d/cert-manager-upgrade/pkg/config"
 	"log"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -10,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	upgrade "github.com/jr0d/cert-manager-upgrade/pkg"
+	"github.com/jr0d/cert-manager-upgrade/pkg/config"
 	myk8s "github.com/jr0d/cert-manager-upgrade/pkg/kubernetes"
 )
 
@@ -77,6 +77,7 @@ func Restore(kubeconfig string) error {
 
 	// destroy backups
 	if !config.AppConfig.PreserveBackups {
+		log.Printf("removing backups")
 		if err := myk8s.DeleteBackups(c); err != nil {
 			return fmt.Errorf("error deleting backups: %v", err)
 		}

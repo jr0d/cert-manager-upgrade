@@ -21,4 +21,11 @@ var (
 		"Certificate":        "certificates",
 		"CertificateRequest": "certificaterequests",
 	}
+	MetaDataFieldsToRemove = [...]string{
+		"creationTimestamp",
+		"generation",
+		"resourceVersion",
+		"selfLink",
+		"uid",
+	}
 )

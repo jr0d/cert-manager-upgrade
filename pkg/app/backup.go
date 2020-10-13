@@ -1,12 +1,12 @@
 package app
 
 import (
-	"github.com/jr0d/cert-manager-upgrade/pkg/config"
 	"log"
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/jr0d/cert-manager-upgrade/pkg/config"
 	myk8s "github.com/jr0d/cert-manager-upgrade/pkg/kubernetes"
 )
 
