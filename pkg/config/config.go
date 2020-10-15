@@ -8,6 +8,7 @@ type c struct {
 	PreserveCRDs              bool
 	DryRun                    bool
 	PreserveBackups           bool
+	SkipFixSecrets            bool
 }
 
 var (

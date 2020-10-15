@@ -13,4 +13,7 @@ const (
 
 	CertManagerGroupV1   = "cert-manager.io"
 	CertManagerVersionV1 = "v1"
+
+	InvalidCAInjectorAnnotation = "certmanager.k8s.io/allow-direct-injection"
+	ValidCAInjectorAnnotation   = "cert-manager/allow-direct-injection"
 )

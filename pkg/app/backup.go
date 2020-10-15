@@ -52,5 +52,13 @@ func Backup(kubeconfig string) error {
 			return err
 		}
 	}
+
+	if !config.AppConfig.SkipFixSecrets {
+		log.Printf("fixing secrets for direct injection...")
+		if err := myk8s.FixWebhookSecret(c); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

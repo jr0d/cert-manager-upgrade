@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/jr0d/cert-manager-upgrade/pkg/app"
 	"github.com/jr0d/cert-manager-upgrade/pkg/config"
-	"github.com/spf13/cobra"
 )
 
 var backupCmd = &cobra.Command{
@@ -17,4 +18,7 @@ var backupCmd = &cobra.Command{
 func init() {
 	backupCmd.Flags().BoolVar(
 		&config.AppConfig.PreserveCRDs, "keep-crds", false, "do not delete crds")
+
+	backupCmd.Flags().BoolVar(
+		&config.AppConfig.SkipFixSecrets, "skip-fix-secrets", false, "do not modify secrets")
 }

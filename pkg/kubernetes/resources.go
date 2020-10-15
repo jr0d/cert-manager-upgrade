@@ -178,6 +178,27 @@ func DeleteCRDs(cfg *rest.Config) error {
 	return nil
 }
 
+func FixWebhookSecret(c kubernetes.Interface) error {
+	secrets, err := getCaInjectorSecretsForUpgrade(c)
+	if err != nil {
+		return err
+	}
+
+	for _, secret := range secrets {
+		delete(secret.Annotations, config.InvalidCAInjectorAnnotation)
+		secret.Annotations[config.ValidCAInjectorAnnotation] = "true"
+
+		log.Printf("updating secret to allow direct injection: %s/%s", secret.Namespace, secret.Name)
+		_, err := c.CoreV1().Secrets(secret.Namespace).Update(
+			context.TODO(), &secret, metav1.UpdateOptions{})
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func storeResource(c kubernetes.Interface, resource *unstructured.Unstructured) error {
 	data, err := resource.MarshalJSON()
 	if err != nil {
@@ -231,4 +252,19 @@ func cleanObject(u *unstructured.Unstructured) {
 		unstructured.RemoveNestedField(u.Object, "metadata", field)
 	}
 	unstructured.RemoveNestedField(u.Object, "status")
+}
+
+func getCaInjectorSecretsForUpgrade(c kubernetes.Interface) ([]corev1.Secret, error) {
+	var secrets []corev1.Secret
+	secretList, err := c.CoreV1().Secrets("").List(
+		context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, secret := range secretList.Items {
+		if _, ok := secret.Annotations[config.InvalidCAInjectorAnnotation]; ok {
+			secrets = append(secrets, secret)
+		}
+	}
+	return secrets, nil
 }
